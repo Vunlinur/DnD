@@ -1,5 +1,7 @@
 import inspect
 import random
+import time
+
 
 DEBUG = False
 
@@ -76,11 +78,14 @@ class Attack:
         return roll(self.quantity, self.dice)
 
 
-class Sampler:
+class Variant:
     def __init__(self, name, samples):
         self.name = name
         self.samples = samples
         self.sum = 0
+        self.min = None
+        self.max = None
+        self.avg = None
         self.standard = None
 
     def _percent(self, flt):
@@ -88,8 +93,21 @@ class Sampler:
         return f"{flt:.2f}%"
 
     def run(self):
-        for i in range(self.samples):
-            self.sum += self.calculate()
+        # calculate once to initialize min/max values to increase loop perfo
+        result = self.calculate()
+        self.sum += result
+        self.max = result
+        self.min = result
+
+        # manual calculation of the avg/min/max proved to be the fastest
+        # and most effective way to gather statistics after testing
+        for i in range(self.samples-1):
+            result = self.calculate()
+            self.sum += result
+            if result > self.max:
+                self.max = result
+            if result < self.min:
+                self.min = result
         self.avg = self.sum/self.samples
 
     def summarize(self):
@@ -113,14 +131,14 @@ def main():
     markaen = Character(lvl=8, dex=19, str=7, wis=17)
 
     # no trait
-    sampler = Sampler("no trait", turns)
+    variant = Variant("no trait", turns)
     short_sword = Attack(2, d6, DEX)
-    sampler.calculate = lambda: markaen.attack(short_sword)\
+    variant.calculate = lambda: markaen.attack(short_sword)\
                                 + markaen.attack(short_sword)
-    sampler.run()
-    sampler.summarize()
+    variant.run()
+    variant.summarize()
 
-    std = sampler.avg
+    std = variant.avg
 
     # savage attacker
     avg = avg_roll(2, d6) + 3
@@ -142,62 +160,62 @@ def main():
 
         return att_1 + att_2
 
-    sampler = Sampler("savage attacker", turns)
-    sampler.standard = std
-    sampler.calculate = savage_attacker
-    sampler.run()
-    sampler.summarize()
+    variant = Variant("savage attacker", turns)
+    variant.standard = std
+    variant.calculate = savage_attacker
+    variant.run()
+    variant.summarize()
 
     # dual wielder
-    sampler = Sampler("dual wielder", turns)
-    sampler.standard = std
+    variant = Variant("dual wielder", turns)
+    variant.standard = std
     rapier = Attack(2, d8, DEX)
-    sampler.calculate = lambda: markaen.attack(rapier)\
+    variant.calculate = lambda: markaen.attack(rapier)\
                                 + markaen.attack(rapier)
-    sampler.run()
-    sampler.summarize()
+    variant.run()
+    variant.summarize()
 
     # magic initiate warlock worst case
-    sampler = Sampler("warlock worst case", turns)
-    sampler.standard = std
+    variant = Variant("warlock worst case", turns)
+    variant.standard = std
     short_sword = Attack(2, d6, DEX)
     green_flame_blade = Attack(1, d8)
-    sampler.calculate = lambda: markaen.attack(short_sword)\
+    variant.calculate = lambda: markaen.attack(short_sword)\
                                 + markaen.attack(short_sword)\
                                 + markaen.attack(green_flame_blade)
-    sampler.run()
-    sampler.summarize()
+    variant.run()
+    variant.summarize()
 
     # magic initiate warlock best case
-    sampler = Sampler("warlock best case", turns)
-    sampler.standard = std
+    variant = Variant("warlock best case", turns)
+    variant.standard = std
     short_sword = Attack(2, d6, DEX)
     green_flame_blade = Attack(1, d8)
     green_flame_blade_2nd_target = Attack(1, d8, WIS)
-    sampler.calculate = lambda: markaen.attack(short_sword)\
+    variant.calculate = lambda: markaen.attack(short_sword)\
                                 + markaen.attack(short_sword)\
                                 + markaen.attack(green_flame_blade)\
                                 + markaen.attack(green_flame_blade_2nd_target)
-    sampler.run()
-    sampler.summarize()
+    variant.run()
+    variant.summarize()
 
     # crossbow only
-    sampler = Sampler("crossbow only", turns)
+    variant = Variant("crossbow only", turns)
     crossbow = Attack(1, d8, DEX)
-    sampler.calculate = lambda: markaen.attack(crossbow)
-    sampler.run()
-    sampler.summarize()
+    variant.calculate = lambda: markaen.attack(crossbow)
+    variant.run()
+    variant.summarize()
 
-    ranged_std = sampler.avg
+    ranged_std = variant.avg
 
     # eldritch blast only
-    sampler = Sampler("eldritch blast only", turns)
-    sampler.standard = ranged_std
+    variant = Variant("eldritch blast only", turns)
+    variant.standard = ranged_std
     eldritch_blast = Attack(1, d10)
-    sampler.calculate = lambda: markaen.attack(eldritch_blast)\
+    variant.calculate = lambda: markaen.attack(eldritch_blast)\
                                 + markaen.attack(eldritch_blast)
-    sampler.run()
-    sampler.summarize()
+    variant.run()
+    variant.summarize()
 
 if __name__ == "__main__":
     main()
