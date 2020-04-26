@@ -133,22 +133,30 @@ class Sampler:
         for variant in self.variants:
             variant.run(self.samples)
 
-        for variant in self.variants:
-            col_width = 24
-            if self.standard_variant:
-                summary = [variant.name + ":",
-                           "avg:", f"{variant.avg:.4f}",
-                           "avg gain:", f"{variant.avg - self.standard_variant.avg:.4f}",
-                           "percent gain:", f"{self._percent((variant.avg - self.standard_variant.avg) / variant.avg)}"]
-            else:
-                summary = [variant.name + ":",
-                           "avg:", f"{variant.avg:.4f}"]
-            print("".join(str(column).ljust(col_width) for column in summary))
+        self.display()
+
+    def display(self):
+        variants = [self.standard_variant]
+        variants.extend(self.variants)
+
+        columns = {
+            "name:": lambda x: x.name + ":",
+            "avg dmg:": lambda x: f"{x.avg:.4f}",
+            "avg dmg gain:": lambda x: f"{x.avg - self.standard_variant.avg:.4f}",
+            "percent gain:": lambda x: f"{self._percent((x.avg - self.standard_variant.avg) / x.avg)}",
+            "min dmg": lambda x: x.min,
+            "max dmg": lambda x: x.max,
+        }
+
+        col_width = max(len(variant.name) for variant in variants) + 5  # padding
+        print("".join(str(column).ljust(col_width) for column in columns))
+        for variant in variants:
+            print("".join(str(column(variant)).ljust(col_width) for column in columns.values()))
 
 
 def main():
     markaen = Character(lvl=8, dex=19, str=7, wis=17)
-    sampler = Sampler(10000)
+    sampler = Sampler(100000)
 
     short_sword = Attack(2, d6, DEX)
     sampler.add_standard_variant("no trait",
