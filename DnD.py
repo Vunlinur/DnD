@@ -2,7 +2,6 @@ import inspect
 import random
 import time
 
-
 DEBUG = False
 
 STR = "str"
@@ -78,74 +77,90 @@ class Attack:
         return roll(self.quantity, self.dice)
 
 
-class Variant:
-    def __init__(self, name, samples):
-        self.name = name
+class Sampler:
+    def __init__(self, samples):
         self.samples = samples
-        self.sum = 0
-        self.min = None
-        self.max = None
-        self.avg = None
-        self.standard = None
+        self.standard_variant = None
+        self.variants = []
+
+    class Variant:
+        def __init__(self, name):
+            self.name = name
+            self.sum = 0
+            self.min = None
+            self.max = None
+            self.avg = None
+
+        def run(self, samples):
+            # calculate once to initialize min/max values to increase loop perfo
+            result = self.calculate()
+            self.sum += result
+            self.max = result
+            self.min = result
+
+            # manual calculation of the avg/min/max proved to be the fastest
+            # and most effective way to gather statistics after testing
+            for i in range(samples - 1):
+                result = self.calculate()
+                self.sum += result
+                if result > self.max:
+                    self.max = result
+                if result < self.min:
+                    self.min = result
+            self.avg = self.sum / samples
+
+        def calculate(self):
+            raise NotImplementedError()
 
     def _percent(self, flt):
         flt *= 100
         return f"{flt:.2f}%"
 
+    def add_variant(self, name, turn_function):
+        variant = self.Variant(name)
+        variant.calculate = turn_function
+        self.variants.append(variant)
+
+    def add_standard_variant(self, name, turn_function):
+        variant = self.Variant(name)
+        variant.calculate = turn_function
+        self.standard_variant = variant
+
     def run(self):
-        # calculate once to initialize min/max values to increase loop perfo
-        result = self.calculate()
-        self.sum += result
-        self.max = result
-        self.min = result
+        if self.standard_variant:
+            self.standard_variant.run(self.samples)
 
-        # manual calculation of the avg/min/max proved to be the fastest
-        # and most effective way to gather statistics after testing
-        for i in range(self.samples-1):
-            result = self.calculate()
-            self.sum += result
-            if result > self.max:
-                self.max = result
-            if result < self.min:
-                self.min = result
-        self.avg = self.sum/self.samples
+        for variant in self.variants:
+            variant.run(self.samples)
 
-    def summarize(self):
-        col_width = 24
-        if self.standard:
-            summary = [self.name + ":",
-                       "avg:", f"{self.avg:.4f}",
-                       "avg gain:", f"{self.avg - self.standard:.4f}",
-                       "percent gain:", f"{self._percent((self.avg - self.standard) / self.avg)}"]
-        else:
-            summary = [self.name + ":",
-                       "avg:", f"{self.avg:.4f}"]
-        print("".join(str(column).ljust(col_width) for column in summary))
-
-    def calculate(self):
-        raise NotImplementedError()
+        for variant in self.variants:
+            col_width = 24
+            if self.standard_variant:
+                summary = [variant.name + ":",
+                           "avg:", f"{variant.avg:.4f}",
+                           "avg gain:", f"{variant.avg - self.standard_variant.avg:.4f}",
+                           "percent gain:", f"{self._percent((variant.avg - self.standard_variant.avg) / variant.avg)}"]
+            else:
+                summary = [variant.name + ":",
+                           "avg:", f"{variant.avg:.4f}"]
+            print("".join(str(column).ljust(col_width) for column in summary))
 
 
 def main():
-    turns = 10000
     markaen = Character(lvl=8, dex=19, str=7, wis=17)
+    sampler = Sampler(10000)
 
-    # no trait
-    variant = Variant("no trait", turns)
     short_sword = Attack(2, d6, DEX)
-    variant.calculate = lambda: markaen.attack(short_sword)\
-                                + markaen.attack(short_sword)
-    variant.run()
-    variant.summarize()
+    sampler.add_standard_variant("no trait",
+                                 lambda: markaen.attack(short_sword)
+                                         + markaen.attack(short_sword)
+                                 )
 
-    std = variant.avg
-
-    # savage attacker
     avg = avg_roll(2, d6) + 3
-    short_sword = Attack(2, d6, DEX)
 
     def savage_attacker():
-        # Once per turn when you roll damage for a melee weapon attack, you can reroll the weapon’s damage dice and use either total.
+        # Once per turn when you roll damage for a melee weapon attack,
+        # you can reroll the weapon’s damage dice and use either total.
         reroll = 0
 
         att_1 = markaen.attack(short_sword)
@@ -160,62 +175,53 @@ def main():
 
         return att_1 + att_2
 
-    variant = Variant("savage attacker", turns)
-    variant.standard = std
-    variant.calculate = savage_attacker
-    variant.run()
-    variant.summarize()
+    sampler.add_variant("savage attacker",
+                        savage_attacker
+                        )
 
-    # dual wielder
-    variant = Variant("dual wielder", turns)
-    variant.standard = std
     rapier = Attack(2, d8, DEX)
-    variant.calculate = lambda: markaen.attack(rapier)\
+    sampler.add_variant("dual wielder",
+                        lambda: markaen.attack(rapier)
                                 + markaen.attack(rapier)
-    variant.run()
-    variant.summarize()
+                        )
 
-    # magic initiate warlock worst case
-    variant = Variant("warlock worst case", turns)
-    variant.standard = std
     short_sword = Attack(2, d6, DEX)
     green_flame_blade = Attack(1, d8)
-    variant.calculate = lambda: markaen.attack(short_sword)\
-                                + markaen.attack(short_sword)\
+    sampler.add_variant("warlock worst case",
+                        lambda: markaen.attack(short_sword) \
+                                + markaen.attack(short_sword) \
                                 + markaen.attack(green_flame_blade)
-    variant.run()
-    variant.summarize()
+                        )
 
-    # magic initiate warlock best case
-    variant = Variant("warlock best case", turns)
-    variant.standard = std
     short_sword = Attack(2, d6, DEX)
     green_flame_blade = Attack(1, d8)
     green_flame_blade_2nd_target = Attack(1, d8, WIS)
-    variant.calculate = lambda: markaen.attack(short_sword)\
-                                + markaen.attack(short_sword)\
-                                + markaen.attack(green_flame_blade)\
+    sampler.add_variant("warlock best case",
+                        lambda: markaen.attack(short_sword) \
+                                + markaen.attack(short_sword) \
+                                + markaen.attack(green_flame_blade) \
                                 + markaen.attack(green_flame_blade_2nd_target)
-    variant.run()
-    variant.summarize()
+                        )
 
-    # crossbow only
-    variant = Variant("crossbow only", turns)
-    crossbow = Attack(1, d8, DEX)
-    variant.calculate = lambda: markaen.attack(crossbow)
-    variant.run()
-    variant.summarize()
+    sampler.run()
+    ## crossbow only
+    #variant = Variant("crossbow only", turns)
+    #crossbow = Attack(1, d8, DEX)
+    #variant.calculate = lambda: markaen.attack(crossbow)
+    #variant.run()
+    #variant.summarize()
 
-    ranged_std = variant.avg
+    #ranged_std = variant.avg
 
-    # eldritch blast only
-    variant = Variant("eldritch blast only", turns)
-    variant.standard = ranged_std
-    eldritch_blast = Attack(1, d10)
-    variant.calculate = lambda: markaen.attack(eldritch_blast)\
-                                + markaen.attack(eldritch_blast)
-    variant.run()
-    variant.summarize()
+    ## eldritch blast only
+    #variant = Variant("eldritch blast only", turns)
+    #variant.standard = ranged_std
+    #eldritch_blast = Attack(1, d10)
+    #variant.calculate = lambda: markaen.attack(eldritch_blast) \
+    #                            + markaen.attack(eldritch_blast)
+    #variant.run()
+    #variant.summarize()
+
 
 if __name__ == "__main__":
     main()
