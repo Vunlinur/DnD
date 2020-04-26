@@ -1,6 +1,4 @@
-import inspect
 import random
-import time
 
 DEBUG = False
 
@@ -141,11 +139,11 @@ class Sampler:
 
         columns = {
             "name:": lambda x: x.name + ":",
-            "avg dmg:": lambda x: f"{x.avg:.4f}",
-            "avg dmg gain:": lambda x: f"{x.avg - self.standard_variant.avg:.4f}",
-            "percent gain:": lambda x: f"{self._percent((x.avg - self.standard_variant.avg) / x.avg)}",
             "min dmg": lambda x: x.min,
             "max dmg": lambda x: x.max,
+            "avg dmg:": lambda x: f"{x.avg:.4f}",
+            "avg dmg gain:": lambda x: f"{x.avg - self.standard_variant.avg:.4f}",
+            "percent gain:": lambda x: f"{self._percent((x.avg - self.standard_variant.avg) / x.avg)}"
         }
 
         col_width = max(len(variant.name) for variant in variants) + 5  # padding
@@ -156,13 +154,13 @@ class Sampler:
 
 def main():
     markaen = Character(lvl=8, dex=19, str=7, wis=17)
-    sampler = Sampler(100000)
+    feat_sampler = Sampler(10000)
 
     short_sword = Attack(2, d6, DEX)
-    sampler.add_standard_variant("no trait",
-                                 lambda: markaen.attack(short_sword)
-                                         + markaen.attack(short_sword)
-                                 )
+    feat_sampler.add_standard_variant("no trait",
+                                      lambda: markaen.attack(short_sword)
+                                              + markaen.attack(short_sword)
+                                      )
 
     avg = avg_roll(2, d6) + 3
 
@@ -183,52 +181,82 @@ def main():
 
         return att_1 + att_2
 
-    sampler.add_variant("savage attacker",
-                        savage_attacker
-                        )
+    feat_sampler.add_variant("savage attacker",
+                             savage_attacker
+                             )
 
     rapier = Attack(2, d8, DEX)
-    sampler.add_variant("dual wielder",
-                        lambda: markaen.attack(rapier)
-                                + markaen.attack(rapier)
-                        )
+    feat_sampler.add_variant("dual wielder",
+                             lambda: markaen.attack(rapier)
+                                     + markaen.attack(rapier)
+                             )
 
     short_sword = Attack(2, d6, DEX)
     green_flame_blade = Attack(1, d8)
-    sampler.add_variant("warlock worst case",
-                        lambda: markaen.attack(short_sword) \
-                                + markaen.attack(short_sword) \
-                                + markaen.attack(green_flame_blade)
-                        )
+    feat_sampler.add_variant("warlock worst case",
+                             lambda: markaen.attack(short_sword)
+                                     + markaen.attack(short_sword)
+                                     + markaen.attack(green_flame_blade)
+                             )
 
     short_sword = Attack(2, d6, DEX)
     green_flame_blade = Attack(1, d8)
     green_flame_blade_2nd_target = Attack(1, d8, WIS)
-    sampler.add_variant("warlock best case",
-                        lambda: markaen.attack(short_sword) \
-                                + markaen.attack(short_sword) \
-                                + markaen.attack(green_flame_blade) \
-                                + markaen.attack(green_flame_blade_2nd_target)
-                        )
+    feat_sampler.add_variant("warlock best case",
+                             lambda: markaen.attack(short_sword)
+                                     + markaen.attack(short_sword)
+                                     + markaen.attack(green_flame_blade)
+                                     + markaen.attack(green_flame_blade_2nd_target)
+                             )
 
-    sampler.run()
-    ## crossbow only
-    #variant = Variant("crossbow only", turns)
-    #crossbow = Attack(1, d8, DEX)
-    #variant.calculate = lambda: markaen.attack(crossbow)
-    #variant.run()
-    #variant.summarize()
+    feat_sampler.run()
 
-    #ranged_std = variant.avg
+    ranged_sampler = Sampler(10000)
+    crossbow = Attack(1, d8, DEX)
+    ranged_sampler.add_standard_variant("crossbow only",
+                                        lambda: markaen.attack(crossbow)
+                                        )
 
-    ## eldritch blast only
-    #variant = Variant("eldritch blast only", turns)
-    #variant.standard = ranged_std
-    #eldritch_blast = Attack(1, d10)
-    #variant.calculate = lambda: markaen.attack(eldritch_blast) \
-    #                            + markaen.attack(eldritch_blast)
-    #variant.run()
-    #variant.summarize()
+    eldritch_blast = Attack(1, d10)
+    ranged_sampler.add_variant("eldritch blast only",
+                               lambda: markaen.attack(eldritch_blast)
+                                       + markaen.attack(eldritch_blast)
+                               )
+
+    ranged_sampler.run()
+
+    spell_sampler = Sampler(10000)
+
+    short_sword = Attack(2, d6, DEX)
+    green_flame_blade = Attack(1, d8)
+    spell_sampler.add_standard_variant("markaen only",
+                                       lambda: markaen.attack(short_sword)
+                                               + markaen.attack(short_sword)
+                                               + markaen.attack(green_flame_blade)
+                                       )
+
+    wolf = Character(lvl=8, dex=15)
+    bite = Attack(2, d4, DEX)
+    spell_sampler.add_variant("with wolf",
+                              lambda: markaen.attack(short_sword)
+                                      + markaen.attack(short_sword)
+                                      + markaen.attack(green_flame_blade)
+                                      + wolf.attack(bite)
+                                      + wolf.attack(bite)
+                              )
+
+    bestial_spirit = Character(str=18)
+    maul = Attack(1, d8, STR)
+    spell_sampler.add_variant("with wolf, bestial spirit",
+                              lambda: markaen.attack(short_sword)
+                                      + markaen.attack(short_sword)
+                                      + markaen.attack(green_flame_blade)
+                                      + wolf.attack(bite)
+                                      + wolf.attack(bite)
+                                      + bestial_spirit.attack(maul) + 2
+                              )
+
+    spell_sampler.run()
 
 
 if __name__ == "__main__":
