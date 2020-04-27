@@ -256,6 +256,16 @@ def main():
                                       + bestial_spirit.attack(maul) + 2
                               )
 
+    ensnaring_strike = Attack(1, d6)
+    spell_sampler.add_variant("with wolf, ensnaring strike",
+                              lambda: markaen.attack(short_sword)
+                                      + markaen.attack(short_sword)
+                                      + markaen.attack(green_flame_blade)
+                                      + markaen.attack(ensnaring_strike)
+                                      + wolf.attack(bite)
+                                      + wolf.attack(bite)
+                              )
+
     spell_sampler.run()
 
 
