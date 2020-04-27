@@ -245,15 +245,15 @@ def main():
                                       + wolf.attack(bite)
                               )
 
-    bestial_spirit = Character(str=18)
-    maul = Attack(1, d8, STR)
-    spell_sampler.add_variant("with wolf, bestial spirit",
+    owlbear = Character(str=20)
+    beak = Attack(1, d10, STR)
+    claws = Attack(2, d8, STR)
+    spell_sampler.add_variant("with owlbear",
                               lambda: markaen.attack(short_sword)
                                       + markaen.attack(short_sword)
                                       + markaen.attack(green_flame_blade)
-                                      + wolf.attack(bite)
-                                      + wolf.attack(bite)
-                                      + bestial_spirit.attack(maul) + 2
+                                      + owlbear.attack(beak)
+                                      + owlbear.attack(claws)
                               )
 
     ensnaring_strike = Attack(1, d6)
@@ -264,6 +264,17 @@ def main():
                                       + markaen.attack(ensnaring_strike)
                                       + wolf.attack(bite)
                                       + wolf.attack(bite)
+                              )
+
+    bestial_spirit = Character(str=18)
+    maul = Attack(1, d8, STR)
+    spell_sampler.add_variant("with wolf, bestial spirit",
+                              lambda: markaen.attack(short_sword)
+                                      + markaen.attack(short_sword)
+                                      + markaen.attack(green_flame_blade)
+                                      + wolf.attack(bite)
+                                      + wolf.attack(bite)
+                                      + bestial_spirit.attack(maul) + 2
                               )
 
     spell_sampler.run()
